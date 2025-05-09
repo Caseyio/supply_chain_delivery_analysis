@@ -41,7 +41,7 @@ This capstone explores operational drivers of late deliveries using R, Python, a
 
 ---
 
-## 📌 Tools Used
+## Tools Used
 
 - **R**: tidyverse, ggplot2, dplyr, readr
 - **Python**: pandas, seaborn, scikit-learn, xgboost
@@ -50,7 +50,7 @@ This capstone explores operational drivers of late deliveries using R, Python, a
 
 ---
 
-## 📬 Contact
+## Contact
 
 Built by [Casey Ortiz](https://www.linkedin.com/in/kco1).  
 Best Contact: kcarlos.ortiz@gmail.com
