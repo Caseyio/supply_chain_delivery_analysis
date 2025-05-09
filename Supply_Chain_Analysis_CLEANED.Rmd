@@ -1,0 +1,463 @@
+---
+title: Supply Chain Delivery Analysis
+author: Casey Ortiz
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 2
+    number_sections: true
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 2
+    number_sections: false
+    theme: flatly
+    highlight: tango
+---
+
+<!-- ✅ Custom banner -->
+<div style="background-color:#2C3E50; color:white; padding:20px; border-radius:6px; margin:30px 0 20px 0; text-align:center;">
+  <h2 style="margin:0 0 8px 0;">Supply Chain Delivery Analysis</h2>
+  <p style="margin:0;">Case Study by Casey Ortiz — <strong>`r Sys.Date()`</strong></p>
+</div>
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Executive Summary
+
+This case study explores on-time delivery performance within a supply chain logistics dataset. Using a combination of data cleaning, exploratory analysis, and machine learning modeling in R and Python, we set out to identify key drivers behind late shipments and uncover operational insights to reduce delivery risk.
+
+We analyzed over 10,000 records across multiple shipment types, product weights, and delivery channels. Our models achieved up to **68% accuracy**, but the most valuable discovery came through segmentation:  
+
+* **Products under $175 and less than 4 lbs** had a **96.8% on-time delivery rate**, while  
+* **Products between 4.5–8 lbs** showed a **0% late delivery rate**.
+
+Further analysis of transportation modes and warehouse types revealed clear operational patterns within these high-performing segments.
+
+As a result, we recommend optimizing fulfillment routing and inventory placement strategies for light, low-cost items — and prioritizing warehouse and mode consistency to further reduce delivery delays.
+
+```{r executive-visual, echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, fig.height=6, dpi=300}
+
+# 📦 Load packages
+library(tidyverse)
+
+# 🔁 Load the cleaned data
+data <- read_csv("train.csv")
+
+# 🔁 Recode delivery status
+data <- data %>%
+  mutate(on_time_delivery = case_when(
+    on_time_delivery %in% c(1, "1") ~ "On Time",
+    on_time_delivery %in% c(0, "0") ~ "Late",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(on_time_delivery = factor(on_time_delivery, levels = c("Late", "On Time")))
+
+# 🎯 Plot with styled legend inside top-left
+ggplot(data, aes(x = product_cost, y = weight_lbs, color = on_time_delivery)) +
+  geom_point(alpha = 0.6, size = 0.8) +
+  scale_color_manual(values = c("Late" = "#F8766D", "On Time" = "#00BA38")) +
+  labs(
+    title = "📊 Product Cost vs Weight by Delivery Outcome",
+    x = "Product Cost ($)",
+    y = "Weight (lbs)",
+    color = "Delivery Status"
+  ) +
+  annotate("text", x = 2, y = 3.2, label = "Nearly Perfect:\nLow Cost & Weight",
+           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 175, ymin = 0, ymax = 4,
+           alpha = 0.1, fill = "#2CA02C") +
+  annotate("text", x = 65, y = 6.5, label = "Perfect Delivery Rate:\n4.5–8 lbs",
+           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 500, ymin = 4.5, ymax = 8,
+           alpha = 0.08, fill = "#1f77b4") +
+  coord_cartesian(xlim = c(0, 315)) +
+  theme_minimal() +
+  theme(
+    legend.position = c(0.05, 0.95),  # Top-left inside
+    legend.justification = c("left", "top"),
+    legend.background = element_rect(fill = alpha("white", 0.8), color = "gray70"),
+    legend.title = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", size = 14)
+  )
+```
+
+# Case Study: Predicting Late Deliveries in Supply Chain Logistics
+
+## 1. Problem Statement
+
+Late deliveries reduce customer satisfaction and increase operational
+costs.\
+The goal was to analyze supply chain performance data and build a
+predictive model to identify which shipments are at risk of arriving
+late.
+
+------------------------------------------------------------------------
+
+## 2. Dataset Overview
+
+-   Dataset: Kaggle – E-Commerce Shipping Data\
+-   10,999 rows representing individual shipments\
+-   Key features: delivery_type, warehouse_type, delivery_priority, weight_lbs\
+-   Target variable: `on_time_delivery` (1 = on time, 0 = late)
+
+------------------------------------------------------------------------
+
+## 3. Data Cleaning and Preparation
+
+-   Standardized all column names (snake_case)
+-   Converted weight from grams to pounds (rounded to 2 decimals)
+-   Label-encoded categorical variables
+-   Binned `product_cost` and `customer_calls` for pattern discovery
+-   Dropped identifier column
+-   Exported cleaned dataset for modeling
+
+```{r Data Preparation and Cleaning}
+
+# Load libraries
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(ggplot2)
+library(janitor)
+
+# Load dataset 
+data <- read_csv("train_raw.csv")
+# View(data)  # Disable this line when knitting
+
+
+summary(data)
+glimpse(data)
+
+# On-time delivery summary
+data %>%
+  group_by(Reached.on.Time_Y.N) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+# Rename columns for clarity
+data <- data %>%
+  rename(
+    id = ID,
+    warehouse_type = Warehouse_block,
+    delivery_type = Mode_of_Shipment,
+    customer_calls = Customer_care_calls,
+    customer_review = Customer_rating,
+    product_cost = Cost_of_the_Product,
+    prior_purchases = Prior_purchases,
+    delivery_priority = Product_importance,
+    gender = Gender,
+    discount_offered = Discount_offered,
+    weight_lbs = Weight_in_gms,
+    on_time_delivery = Reached.on.Time_Y.N
+  )
+
+# Convert grams to lbs and round 2 decimal places
+data <- data %>%
+  mutate(weight_lbs = round(weight_lbs / 453.592, 2))
+
+# Set column types
+data <- data %>%
+  mutate(
+    warehouse_type = as.factor(warehouse_type),
+    delivery_type = as.factor(delivery_type),
+    gender = as.factor(gender),
+    delivery_priority = factor(delivery_priority, levels = c("low", "medium", "high"), ordered = TRUE),
+    customer_review = as.integer(customer_review),
+    customer_calls = as.integer(customer_calls),
+    prior_purchases = as.integer(prior_purchases),
+    discount_offered = as.integer(discount_offered),
+    on_time_delivery = as.factor(on_time_delivery)
+  )
+
+# Save cleaned data to CSV
+write_csv(data, "train.csv")
+
+# Summary of dataset
+summary(data)
+
+# Check levels of categorical variables
+sapply(data[, sapply(data, is.factor)], levels)
+
+# Drop id column before modeling
+data <- data %>% select(-id)
+
+#Check balance of target variable
+table(data$on_time_delivery)
+prop.table(table(data$on_time_delivery))
+
+#Reorder Columns
+data <- data %>%
+  select(on_time_delivery, delivery_priority, delivery_type, everything())
+
+# Export cleaned dataset (optional)
+write_csv(data, "train_cleaned.csv")
+```
+
+------------------------------------------------------------------------
+
+## 4. Exploratory Data Analysis (EDA)
+
+-   On-time delivery rates were surprisingly consistent across priority
+    levels, shipment modes, and warehouses
+-   Some slight increases in late delivery rates were seen with higher
+    product cost and increased customer calls
+
+**Visuals Created:** 
+
+* Product Cost vs Weight: Identified low-cost, low-weight segments with nearly perfect on-time delivery.
+* Pie Chart by Delivery Type: Shipments in perfect segments are mostly concentrated in "ship" transportation mode.
+* Pie Chart by Warehouse Type: High-performing deliveries are unevenly distributed across warehouse types, offering targeting opportunities.
+
+```{r}
+summary(data)
+glimpse(data)
+
+#Check late deliveries by category
+data %>%
+  group_by(delivery_priority, on_time_delivery) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+data %>%
+  group_by(delivery_type, on_time_delivery) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+data %>%
+  group_by(warehouse_type, on_time_delivery) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+data %>%
+  group_by(prior_purchases, on_time_delivery) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+```
+
+------------------------------------------------------------------------
+
+## 5. Preprocessing and Feature Engineering
+
+The raw dataset required a series of preprocessing steps to prepare it for modeling. These included:
+
+- Cleaning column names for readability
+- Converting weight from grams to pounds
+- Encoding categorical variables (e.g., warehouse type, shipment mode, delivery priority)
+- Binning numerical variables like `product_cost` and `weight_lbs` for visualization
+- Creating ordered factors for `delivery_priority` and `customer_review`
+
+These steps were performed in R for data exploration, and replicated in Python to support modeling in the Colab notebook.
+
+------------------------------------------------------------------------
+
+## 6. Predictive Modeling (Python)
+
+To complement the exploratory work in R, I built and evaluated a series of classification models in Python using Google Colab.
+
+The workflow included:
+
+- Preprocessing: Label encoding of categorical variables and stratified train-test split
+- Evaluation: Accuracy, precision, recall, F1-score, and confusion matrix
+- Modeling:  
+  - **Logistic Regression**  
+  - **Decision Tree Classifier**  
+  - **XGBoost Classifier** (with hyperparameter tuning)
+
+The decision tree and tuned XGBoost models achieved the best recall on late deliveries, although overall accuracy plateaued around 68%. Full code, metrics, and visualizations are available in the linked Colab notebook.
+
+
+### Model Performance (Holdout Set)
+| Model               | Accuracy | Precision (Late) | Recall (Late) | F1 Score (Late) |
+|--------------------|----------|------------------|----------------|-----------------|
+| Logistic Regression| 63.5%    | 54%              | 58%            | 56%             |
+| Decision Tree      | 68.0%    | 56%              | 98%            | 71%             |
+| XGBoost (Tuned)    | 67.9%    | 56%              | 98%            | 71%             |
+
+> 🔍 XGBoost delivered the strongest precision-recall balance after hyperparameter tuning. Feature importance suggested that **product weight** and **cost** were the dominant drivers of delivery performance.
+
+### Access Full Modeling Notebook
+📎 [View the full Colab notebook](https://colab.research.google.com/drive/1FVgIY6qvmbH7W0Zrpdu1KYgv2V9KvMJ5?usp=sharing)  
+*(Includes code, training pipeline, and visualizations)*
+
+## 7. Visual Insights Summary
+
+The following charts illustrate the key findings that support the modeling and recommendations:
+
+- 📊 *Product Cost vs Weight*: Identified low-cost, low-weight segments with nearly perfect on-time delivery.
+- 🧁 *Pie Chart by Delivery Type*: Shipments in perfect segments are mostly concentrated in [top categories].
+- 🏬 *Pie Chart by Warehouse Type*: High-performing deliveries are unevenly distributed across warehouse blocks, offering targeting opportunities.
+
+
+```{r Product Cost vs Weight by Delivery Outcome Scatterplot, fig.width=10, fig.height=6, dpi=300}
+
+# 📦 Load packages
+library(tidyverse)
+
+# 🔁 Load the cleaned data
+data <- read_csv("train.csv")
+
+# 🔁 Recode delivery status
+data <- data %>%
+  mutate(on_time_delivery = case_when(
+    on_time_delivery %in% c(1, "1") ~ "On Time",
+    on_time_delivery %in% c(0, "0") ~ "Late",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(on_time_delivery = factor(on_time_delivery, levels = c("Late", "On Time")))
+
+# 🎯 Plot with styled legend inside top-left
+ggplot(data, aes(x = product_cost, y = weight_lbs, color = on_time_delivery)) +
+  geom_point(alpha = 0.6, size = 0.8) +
+  scale_color_manual(values = c("Late" = "#F8766D", "On Time" = "#00BA38")) +
+  labs(
+    title = "📊 Product Cost vs Weight by Delivery Outcome",
+    x = "Product Cost ($)",
+    y = "Weight (lbs)",
+    color = "Delivery Status"
+  ) +
+  annotate("text", x = 2, y = 3.2, label = "Nearly Perfect:\nLow Cost & Weight",
+           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 175, ymin = 0, ymax = 4,
+           alpha = 0.1, fill = "#2CA02C") +
+  annotate("text", x = 65, y = 6.5, label = "Perfect Delivery Rate:\n4.5–8 lbs",
+           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 500, ymin = 4.5, ymax = 8,
+           alpha = 0.08, fill = "#1f77b4") +
+  coord_cartesian(xlim = c(0, 315)) +
+  theme_minimal() +
+  theme(
+    legend.position = c(0.05, 0.95),  # Top-left inside
+    legend.justification = c("left", "top"),
+    legend.background = element_rect(fill = alpha("white", 0.8), color = "gray70"),
+    legend.title = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", size = 14)
+  )
+
+# ✅ Save plot
+ggsave("product_cost_vs_weight.png", width = 10, height = 6, dpi = 300)
+
+```
+
+```{r}
+# Filter for nearly perfect deliveries (e.g., low cost & low weight OR ideal weight zone)
+perfect_subset <- data %>%
+  filter((product_cost < 175 & weight_lbs < 4) | (weight_lbs >= 4.5 & weight_lbs <= 8))
+
+# Summarize proportions by delivery type
+delivery_type_dist <- perfect_subset %>%
+  group_by(delivery_type) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+# Pie chart
+ggplot(delivery_type_dist, aes(x = "", y = percent, fill = delivery_type)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(percent, "%")), position = position_stack(vjust = 0.5), color = "white") +
+  labs(
+    title = "📦 On-Time Delivery by Delivery Type (Perfect Segments)",
+    fill = "Delivery Type"
+  ) +
+  theme_void()
+
+# ✅ Save plot
+ggsave("on_time_delivery_by_delivery_type.png", width = 10, height = 6, dpi = 300)
+
+#library(scales)
+#ggplot_build(p)$data[[1]]$fill  # For fill colors
+
+```
+
+```{r}
+# 🎨 Define the color palette for all 5 warehouse types
+warehouse_colors <- c(
+  "A" = "#F8766D",
+  "B" = "#00BA38",
+  "F" = "#619CFF",
+  "D" = "#E68613",
+  "C" = "#956CB4"
+)
+
+# 📊 Summarize proportions by warehouse type
+warehouse_dist <- perfect_subset %>%
+  group_by(warehouse_type) %>%
+  summarise(count = n()) %>%
+  mutate(percent = round(100 * count / sum(count), 1))
+
+# 🧁 Pie chart
+ggplot(warehouse_dist, aes(x = "", y = percent, fill = warehouse_type)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(percent, "%")),
+            position = position_stack(vjust = 0.5), color = "white") +
+  scale_fill_manual(values = warehouse_colors) +
+  labs(
+    title = "🏬 On-Time Delivery by Warehouse Type (Perfect Segments)",
+    fill = "Warehouse"
+  ) +
+  theme_void()
+
+# ✅ Save plot
+ggsave("on_time_delivery_by_warehouse_type.png", width = 10, height = 6, dpi = 300)
+```
+
+------------------------------------------------------------------------
+
+## 8. Final Insights and Recommendations
+
+Data analysis and modeling surfaced several high-value patterns:
+
+### High-Performance Delivery Segments
+- Products under **$175 and under 4 lbs** achieved a **96.8% on-time delivery rate**
+- Products between **4.5–8 lbs** showed **0% late deliveries**
+- These items clustered around select warehouses (notably Type F) and primarily used “Ship” as delivery mode
+
+### Operational Recommendations
+- **Replicate perfect conditions**: Investigate which SKUs fall into this group. Are there packaging, route, or facility advantages that can be scaled?
+- **Audit high-performing warehouses**: Type F warehouses had a strong presence in the best-performing segments. Audit these facilities to identify operational best practices. Consider prioritizing their use for high-risk deliveries.
+- **Validate delivery mode logic**: “Ship” shipments account for ~70% of the on time deliveries in our subset. Validate how modes (Road, Ship, Flight) are assigned and evaluate average transit times. If shipping mode correlates with geography or warehouse location, re-optimizing routing logic may improve delivery accuracy.
+
+### Strategic Modeling Use
+- Use model predictions to **flag high-risk deliveries** based on cost, weight, and discounts — deprioritize low-signal features like gender
+- Employ business rules post-model to escalate high-priority customer orders, even if model confidence is high
+
+
+------------------------------------------------------------------------
+
+## 9. Next Steps
+
+To operationalize these insights and extend model value:
+
+- **Refine business context**  
+  Collaborate with operations teams to validate routing logic, facility constraints, and packaging practices
+
+- **Hyperparameter tuning**  
+  Further optimize XGBoost or LightGBM using Optuna to improve recall on late deliveries
+
+- **Enrich the dataset**  
+  Add external signals like weather, holidays, region, or real-time delay feeds to boost model accuracy
+
+- **Deploy a real-time dashboard**  
+  Use Tableau, Streamlit, or Power BI to surface predicted late deliveries and monitor impact
+
+- **Test model-driven routing decisions**  
+  Run A/B tests or operational pilots to evaluate the real-world business impact of acting on predictions
+  
+------------------------------------------------------------------------  
+  
+## 10. Project Files & Portfolio Links
+
+GitHub Repository: [github.com/yourusername/supply-chain-delivery](#)  
+Google Colab Notebook: [View in Colab](https://colab.research.google.com/drive/1FVgIY6qvmbH7W0Zrpdu1KYgv2V9KvMJ5?usp=sharing)  
+R Markdown Report (HTML): [View HTML](#)  
+Key Visuals: [product_cost_vs_weight.png](#), [warehouse_type_pie.png](#)
+
+---
+
+This project demonstrates applied analytics across the full pipeline — from data cleaning and EDA in R to modeling, segmentation, and operational recommendations using Python and visualization tools. For recruiters or teams reviewing this case study, I’m happy to walk through the notebook and share additional insights.
+
