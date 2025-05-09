@@ -36,7 +36,7 @@ This capstone explores operational drivers of late deliveries using R, Python, a
 ## Links
 
 - [Final HTML Report (R Markdown)](./Supply_Chain_Analysis.html)
-- [Colab Notebook (Python modeling)](https://colab.research.google.com/drive/YOUR_NOTEBOOK_LINK)
+- [Colab Notebook (Python modeling)](https://colab.research.google.com/drive/1FVgIY6qvmbH7W0Zrpdu1KYgv2V9KvMJ5?usp=sharing))
 - [Key Visual](./product_cost_vs_weight.png)
 
 ---
