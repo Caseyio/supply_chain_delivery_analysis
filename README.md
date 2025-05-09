@@ -35,9 +35,20 @@ This capstone explores operational drivers of late deliveries using R, Python, a
 
 ## Links
 
-- [Final HTML Report (R Markdown)](./Supply_Chain_Analysis.html)
+- [Final HTML Report (R Markdown)](./Supply-Chain-Analysis.html)
 - [Colab Notebook (Python modeling)](https://colab.research.google.com/drive/1FVgIY6qvmbH7W0Zrpdu1KYgv2V9KvMJ5?usp=sharing))
-- [Key Visual](./product_cost_vs_weight.png)
+
+## Key Visuals
+
+### Product Cost vs Weight
+![Product Cost vs Weight](./product_cost_vs_weight.png)
+
+### On-Time Delivery by Warehouse Type
+![On-Time Delivery by Warehouse](./on_time_delivery_by_warehouse_type.png)
+
+### On-Time Delivery by Delivery Type
+![On-Time Delivery by Delivery Type](./on_time_delivery_by_delivery_type.png)
+
 
 ---
 
