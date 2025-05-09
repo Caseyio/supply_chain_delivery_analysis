@@ -67,13 +67,15 @@ ggplot(data, aes(x = product_cost, y = weight_lbs, color = on_time_delivery)) +
     y = "Weight (lbs)",
     color = "Delivery Status"
   ) +
-  annotate("text", x = 2, y = 3.2, label = "Nearly Perfect:\nLow Cost & Weight",
-           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
-  annotate("rect", xmin = 0, xmax = 175, ymin = 0, ymax = 4,
+  annotate("text", x = 45, y = 7.3, label = "The Big Mystery",
+           color = "black", size = 8, hjust = 0, fontface = "bold") +
+  annotate("text", x = 3.6, y = 3.3, label = "Near Perfect: <$175 & <4.5lbs.",
+           color = "black", size = 4.5, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 175, ymin = 2, ymax = 4.5,
            alpha = 0.1, fill = "#2CA02C") +
-  annotate("text", x = 65, y = 6.5, label = "Perfect Delivery Rate:\n4.5–8 lbs",
-           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
-  annotate("rect", xmin = 0, xmax = 500, ymin = 4.5, ymax = 8,
+  annotate("text", x = 41, y = 5.8, label = "Perfect Delivery Rate: 4.5–8 lbs",
+           color = "black", size = 4.5, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 285, ymin = 4.5, ymax = 8.8,
            alpha = 0.08, fill = "#1f77b4") +
   coord_cartesian(xlim = c(0, 315)) +
   theme_minimal() +
@@ -91,8 +93,7 @@ ggplot(data, aes(x = product_cost, y = weight_lbs, color = on_time_delivery)) +
 ## 1. Problem Statement
 
 Late deliveries reduce customer satisfaction and increase operational
-costs.\
-The goal was to analyze supply chain performance data and build a
+costs. The goal was to analyze supply chain performance data and build a
 predictive model to identify which shipments are at risk of arriving
 late.
 
@@ -320,13 +321,15 @@ ggplot(data, aes(x = product_cost, y = weight_lbs, color = on_time_delivery)) +
     y = "Weight (lbs)",
     color = "Delivery Status"
   ) +
-  annotate("text", x = 2, y = 3.2, label = "Nearly Perfect:\nLow Cost & Weight",
-           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
-  annotate("rect", xmin = 0, xmax = 175, ymin = 0, ymax = 4,
+  annotate("text", x = 45, y = 7.3, label = "The Big Mystery",
+           color = "black", size = 8, hjust = 0, fontface = "bold") +
+  annotate("text", x = 3.6, y = 3.3, label = "Near Perfect: <$175 & <4.5lbs.",
+           color = "black", size = 4.5, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 175, ymin = 2, ymax = 4.5,
            alpha = 0.1, fill = "#2CA02C") +
-  annotate("text", x = 65, y = 6.5, label = "Perfect Delivery Rate:\n4.5–8 lbs",
-           color = "black", size = 3.1, hjust = 0, fontface = "bold") +
-  annotate("rect", xmin = 0, xmax = 500, ymin = 4.5, ymax = 8,
+  annotate("text", x = 41, y = 5.8, label = "Perfect Delivery Rate: 4.5–8 lbs",
+           color = "black", size = 4.5, hjust = 0, fontface = "bold") +
+  annotate("rect", xmin = 0, xmax = 285, ymin = 4.5, ymax = 8.8,
            alpha = 0.08, fill = "#1f77b4") +
   coord_cartesian(xlim = c(0, 315)) +
   theme_minimal() +
